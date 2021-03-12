@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+#myfiles
+drug_mine_2020/
+
 # Distribution / packaging
 .Python
 build/
