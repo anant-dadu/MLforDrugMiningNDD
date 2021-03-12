@@ -49,7 +49,7 @@ st.markdown(
 import copy
 
 ##TODO: UPDATE TITLE
-st.title('Machine Learning for ALS') 
+st.title('Machine Learning for NDD using Drug Mining') 
 
 app.add_app("Scientific background", streamlit_shapley_component.app)
 app.add_app("Predict Patient ALS Subtype", streamlit_prediction_component_multimodels.app)
