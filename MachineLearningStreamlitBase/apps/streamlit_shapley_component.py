@@ -42,69 +42,70 @@ def app():
         train_samples = len(train[1]['X_train'])
         test_samples = len(train[1]['X_valid'])
         
-        # if replication:
-        #     shap_values = np.concatenate([train[0]['shap_values_train'], train[0]['shap_values_rep']], axis=0)
-        #     X = pd.concat([train[1]['X_train'], train[1]['X_rep']], axis=0)
-        #     ids = list(train[3]['ID_train'.format(dataset_type)]) + list(train[3]['ID_rep'.format(dataset_type)])
-        #     test_samples = len(train[1]['X_rep'])
-        #     auc_test = train[3]['AUC_rep']
-        #     labels_pred = list(train[3]['y_pred_train'.format(dataset_type)]) + list(train[3]['y_pred_rep'.format(dataset_type)]) 
-        #     labels_actual = list(train[3]['y_train'.format(dataset_type)]) + list(train[3]['y_rep'.format(dataset_type)]) 
-    
         X.columns = ['({}) {}'.format(dict_map_result[col], col) if dict_map_result.get(col, None) is not None else col for col in list(X.columns)]
         shap_values_updated = copy.deepcopy(shap_values_updated) 
         patient_index = [hashlib.md5(str(s).encode()).hexdigest() for e, s in enumerate(ids)]
         return (X, shap_values, exval, patient_index, auc_train, auc_test, labels_actual, labels_pred, shap_values_updated, train_samples, test_samples)
     
-    st.table(df_res.set_index('class name'))
-    feature_set_my = st.radio( "Select the positive class", class_names, index=0)
-    st.write("### Introduction")
+    st.write("## Introduction")
     st.write(
         """
-        SHAP is an unified approach to explain the output of any supervised machine learning model. SHAP values are generated based on the idea that the change of an outcome to be explained with respect to a baseline can be attributed in different proportions to the model input features. In addition to assigning an importance value to every feature based on SHAP values, it shows the direction-of-effect at the level of the model as a whole. Furthermore, SHAP values provide both the global interpretability (i.e. collective SHAP values can show how much each predictor contributes) and local interpretability that explain why a sample receives its prediction. We built a surrogate XGBoost classification model to understand each individual genetic features’ effect on the Parkinsons’ disease classification. We randomly split the dataset into training (70%) and test (30%) sets. The model is trained on the training set and the SHAP score on the validation data is analyzed to better understand the impact of features. Specifically, We used tree SHAP algorithm designed to provide human interpretable explanations for tree based learning models. We did not perform parameter tuning for the surrogate model. 
+        SHAP is an unified approach to explain the output of any supervised machine learning model. SHAP values are generated based on the idea that the change of an outcome to be explained with respect to a baseline can be attributed in different proportions to the model input features. In addition to assigning an importance value to every feature based on SHAP values, it shows the direction-of-effect at the level of the model as a whole. Furthermore, SHAP values provide both the global interpretability (i.e. collective SHAP values can show how much each predictor contributes) and local interpretability that explain why a sample receives its prediction. We built a surrogate XGBoost classification model to understand each individual genetic features’ effect on multiple the Neurodegenerative diseases classification. We randomly split the dataset into training (70%) and test (30%) sets. The model is trained on the training set and validated on the test set. The SHAP score is analyzed in detail to better understand the impact of features. Specifically, We used tree SHAP algorithm designed to provide human interpretable explanations for tree based learning models. 
         """
     )
+    st.markdown(
+        """<style>
+        .boxBorder1 {
+            outline-offset: 5px;
+            font-size:20px;
+        }</style>
+        """, unsafe_allow_html=True) 
+    # st.markdown('<div class="boxBorder1"><font color="black">Model Peformance</font></div>', unsafe_allow_html=True) 
+    st.write("## Results")
+    st.write("### Model Performance") 
+    st.table(df_res.set_index('class name'))
     
-    st.write("### Results")
+    st.markdown('<div class="boxBorder1"><font color="black">Select the disease (positive class)</font></div>', unsafe_allow_html=True)
+    feature_set_my = st.radio( "", class_names, index=0)
     with open('saved_models/trainXGB_gpu_{}.data'.format(feature_set_my), 'rb') as f:
         train = pickle.load(f)
-     
+    st.write('---')
+    st.markdown('<div class="boxBorder1"><font color="black">Showing Analysis for {}</font></div>'.format(feature_set_my), unsafe_allow_html=True) 
+    st.write('---')
     data_load_state = st.text('Loading data...')
     cloned_output = copy.deepcopy(get_shapley_value_data(train, replication=replication_avail))
     data_load_state.text("Done Data Loading! (using st.cache)")
     X, shap_values, exval, patient_index, auc_train, auc_test, labels_actual, labels_pred, shap_values_up, len_train, len_test = cloned_output 
     
     
+    import sklearn
     col0, col00 = st.beta_columns(2)
     with col0:
         st.write("### Data Statistics")
         st.info ('Total Features: {}'.format(X.shape[1]))
-        st.info ('Total Samples: {} (Train: {}, Test: {})'.format(X.shape[0], len_train, len_test))
+        st.info ('Total Samples: {} (Training: {}, Testing: {})'.format(X.shape[0], len_train, len_test))
     
     with col00:
-        st.write("### XGBoost Model Performance")
-        st.info ('AUC Train Score: {}'.format(round(auc_train,2)))
-        st.info ('AUC Test Score:{}'.format( round(auc_test,2)))
-    
-    
-    import sklearn
-    # st.write(sum(labels_actual[:len_train]), sum(np.array(labels_pred[:len_train])>0.5))
-    # st.write(sum(labels_actual[len_train:]), sum(np.array(labels_pred[len_train:])>0.5))
+        st.write("### ML Model Performance")
+        st.info ('AUC Training Cohort: {}'.format(round(auc_train,2)))
+        st.info ('AUC Testing Cohort: {}'.format( round(auc_test,2)))
+
     col01, col02 = st.beta_columns(2)
     with col01:
-        st.write("### Train Confusion Matrix")
+        st.write("### Training Cohort Confusion Matrix")
         Z = sklearn.metrics.confusion_matrix(labels_actual[:len_train], np.array(labels_pred[:len_train])>0.5)
         Z_df = pd.DataFrame(Z, columns=['Predicted 0', 'Predicted 1'], index= ['Actual 0', 'Actual 1'])
         st.table(Z_df)
     
     with col02:
-        st.write("### Test Confusion Matrix")
+        st.write("### Testing Cohort Confusion Matrix")
         Z = sklearn.metrics.confusion_matrix(labels_actual[len_train:], np.array(labels_pred[len_train:])>0.5)
         Z_df = pd.DataFrame(Z, columns=['Predicted 0', 'Predicted 1'], index= ['Actual 0', 'Actual 1'])
         st.table(Z_df)
-        
+    
+
     st.write('## Summary Plot')
-    st.write("""Shows top-20 features that have the most significant impact on the classification model. In the figure, it shows that Age_OF_Recruit is the most important factor. It also indicates that lower Age_OF_Recruit feature (blue color) value corresponds to lower probability of the disease, as most of the blue colored points lie on the right side of baseline. On the other end, for rs620513, lower expression values align with more healthy behaviour as blue colored points on the plot have negative impact on the model output. In this way, we can also observe that the directionality of different features is not uniform.""")
+    st.write("""Shows top-20 features that have the most significant impact on the classification model. In the figure, for some features lower value (blue color) corresponds to lower probability of the disease, when most of the blue colored points lie on the right side of baseline. On the other end, for some, lower values align with more healthy behaviour as blue colored points on the plot have negative impact on the model output. In this way, we can also observe that the directionality of different features.""")
     if st.checkbox("Show Summary Plot"):
         shap_type = 'trainXGB'
         col1, col2, col2111 = st.beta_columns(3)
@@ -158,7 +159,7 @@ def app():
     misclassified = y_pred != labels_actual_new 
     st.write('## Decision Plots')
     st.write("""
-        We selected 400 subsamples to understand the pathways of predictive modeling. SHAP decision plots show how complex models arrive at their predictions (i.e., how models make decisions). 
+        We selected 500 subsamples to understand the pathways of predictive modeling. SHAP decision plots show how complex models arrive at their predictions (i.e., how models make decisions). 
         Each observation’s prediction is represented by a colored line.
         At the top of the plot, each line strikes the x-axis at its corresponding observation’s predicted value. 
         This value determines the color of the line on a spectrum. 
@@ -169,8 +170,7 @@ def app():
         
     
     import random
-    st.write(shap_values.shape)
-    select_random_samples = np.random.choice(shap_values.shape[0], 400)
+    select_random_samples = np.random.choice(shap_values.shape[0], 500)
 
     new_X = X.iloc[select_random_samples]
     new_shap_values = shap_values[select_random_samples,:]
@@ -178,73 +178,74 @@ def app():
 
 
     st.write('### Pathways for Prediction (Hierarchical Clustering)')
-    if st.checkbox("Show Prediction Pathways (Feature Clustered)"):
+    if st.checkbox("Show Prediction Pathways (order by: Feature Clustered)"):
         col3, col4, col5 = st.beta_columns(3)
         with col3:
-            st.write('Typical Prediction Path: Uncertainity (0.3-0.7)')
+            st.write('Typical Prediction Path: Uncertainity (0.4-0.6)')
             r = shap.decision_plot(exval, np.copy(new_shap_values), list(new_X.columns), feature_order='hclust', return_objects=True, show=False)
-            T = new_X.iloc[(new_labels_pred >= 0.3) & (new_labels_pred <= 0.7)]
+            T = new_X.iloc[(new_labels_pred >= 0.4) & (new_labels_pred <= 0.6)]
             import warnings
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                sh = np.copy(new_shap_values)[(new_labels_pred >= 0.3) & (new_labels_pred <= 0.7), :]
+                sh = np.copy(new_shap_values)[(new_labels_pred >= 0.4) & (new_labels_pred <= 0.6), :]
+            
             fig, ax = plt.subplots()
             shap.decision_plot(exval, sh, T, show=False, feature_order=r.feature_idx, link='logit', return_objects=True, new_base_value=0)
             st.pyplot(fig)
         with col4:
-            st.write('Typical Prediction Path: Positive Class (>=0.95)')
+            st.write('Typical Prediction Path: Positive Class (>=0.9)')
             fig, ax = plt.subplots()
-            T = new_X.iloc[np.array(new_labels_pred, dtype=np.float64) >= 0.95]
+            T = new_X.iloc[np.array(new_labels_pred, dtype=np.float64) >= 0.9]
             import warnings
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                sh = np.copy(new_shap_values)[new_labels_pred >= 0.95, :]
+                sh = np.copy(new_shap_values)[new_labels_pred >= 0.9, :]
             shap.decision_plot(exval, sh, T, show=False, link='logit',  feature_order=r.feature_idx, new_base_value=0)
             st.pyplot(fig)
         with col5:
-            st.write('Typical Prediction Path: Negative Class (<=0.05)')
+            st.write('Typical Prediction Path: Negative Class (<=0.1)')
             fig, ax = plt.subplots()
-            T = new_X.iloc[new_labels_pred <= 0.05]
+            T = new_X.iloc[new_labels_pred <= 0.1]
             import warnings
             with warnings.catch_warnings():
                    warnings.simplefilter("ignore")
-                   sh = np.copy(new_shap_values)[new_labels_pred <= 0.05, :]
+                   sh = np.copy(new_shap_values)[new_labels_pred <= 0.1, :]
             shap.decision_plot(exval, sh, T, show=False, link='logit', feature_order=r.feature_idx, new_base_value=0)
             st.pyplot(fig)
     
 
     st.write('### Pathways for Prediction (Feature Importance)')
-    if st.checkbox("Show Prediction Pathways (Feature Importance)"):
+    if st.checkbox("Show Prediction Pathways (order by: Feature Importance)"):
         col31, col41, col51 = st.beta_columns(3)
         with col31:
-            st.write('Typical Prediction Path: Uncertainity (0.3-0.7)')
+            st.write('Typical Prediction Path: Uncertainity (0.4-0.6)')
             r = shap.decision_plot(exval, np.copy(new_shap_values), list(new_X.columns), return_objects=True, show=False)
-            T = new_X.iloc[(new_labels_pred >= 0.3) & (new_labels_pred <= 0.7)]
+            T = new_X.iloc[(new_labels_pred >= 0.4) & (new_labels_pred <= 0.6)]
             import warnings
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                sh = np.copy(new_shap_values)[(new_labels_pred >= 0.3) & (new_labels_pred <= 0.7), :]
+                sh = np.copy(new_shap_values)[(new_labels_pred >= 0.4) & (new_labels_pred <= 0.6), :]
             fig, ax = plt.subplots()
             shap.decision_plot(exval, sh, T, show=False, feature_order=r.feature_idx, link='logit', return_objects=True, new_base_value=0)
             st.pyplot(fig)
         with col41:
-            st.write('Typical Prediction Path: Positive Class (>=0.95)')
+            st.write('Typical Prediction Path: Positive Class (>=0.9)')
             fig, ax = plt.subplots()
-            T = new_X.iloc[np.array(new_labels_pred, dtype=np.float64) >= 0.95]
+            T = new_X.iloc[np.array(new_labels_pred, dtype=np.float64) >= 0.9]
             import warnings
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                sh = np.copy(new_shap_values)[new_labels_pred >= 0.95, :]
+                sh = np.copy(new_shap_values)[new_labels_pred >= 0.9, :]
             shap.decision_plot(exval, sh, T, show=False, link='logit',  feature_order=r.feature_idx, new_base_value=0)
             st.pyplot(fig)
         with col51:
-            st.write('Typical Prediction Path: Negative Class (<=0.05)')
+            st.write('Typical Prediction Path: Negative Class (<=0.1)')
             fig, ax = plt.subplots()
-            T = new_X.iloc[new_labels_pred <= 0.05]
+            T = new_X.iloc[new_labels_pred <= 0.1]
             import warnings
             with warnings.catch_warnings():
                    warnings.simplefilter("ignore")
-                   sh = np.copy(new_shap_values)[new_labels_pred <= 0.05, :]
+                   sh = np.copy(new_shap_values)[new_labels_pred <= 0.1, :]
             shap.decision_plot(exval, sh, T, show=False, link='logit', feature_order=r.feature_idx, new_base_value=0)
             st.pyplot(fig)
     
@@ -263,47 +264,4 @@ def app():
             id_sel_pats = sel_patients.index(select_pats)
             fig, ax = plt.subplots()
             shap.decision_plot(exval, shap_values[misclassified][id_sel_pats], X.iloc[misclassified,:].iloc[id_sel_pats], link='logit', feature_order=r.feature_idx, highlight=0, new_base_value=0)
-            st.pyplot()
-    
-    
-    
-    st.write('### Data')
-    df = pd.DataFrame({'ID': patient_index,
-                          'Actual Label': labels_actual,
-                          'Predicted Label (PD probability)': labels_pred,
-                          'Split': ['train']*len_train + ['test']*len_test,
-                          'Correctness': [ not i for i in misclassified]
-                         })
-    df['Actual Label'] = df['Actual Label'].map(lambda x: 'PD' if x==1 else 'HC')
-    df['Predicted Label (PD probability)'] = df['Predicted Label (PD probability)'].map(lambda x: round(float(x), 2))
-    df_up = df.copy()
-    df_up = df_up.set_index('ID').sort_values(by=[ 'Split', 'Correctness'])
-    df_up = df_up[df_up['Split']=='test'].sort_values(by=['Split', 'Correctness', 'Predicted Label (PD probability)'])
-    selected = list(df_up[df_up['Correctness']==0].index)
-    
-    if st.checkbox('Show Data'):
-        st.write('#### {} Data Labels'.format('PPMI'.upper()))
-        st.write ('The table shows the predictions on the test data. Rows highlighted with light green colors are the misclassified examples.')
-        st.table(df_up.style.apply(lambda x: ['background: lightgreen'
-                                          if (x.name in selected)
-                                          else '' for i in x], axis=1))
-    st.write('### Force Plots')
-    if st.checkbox('Show Force Plots'):
-        st.write("""
-        The above explanation shows features each contributing to push the model output from the base value (the average model output over the training dataset we passed) to the model output. Features pushing the prediction higher are shown in red, those pushing the prediction lower are in blue.
-        """)
-        patient_name = st.selectbox('Select patient id', options=list(patient_index))
-        sample_id = patient_index.index(patient_name)
-        col8, col9 = st.beta_columns(2)
-        with col8:
-            st.info('Actual Label: ***{}***'.format('PD' if labels_actual[sample_id]==1 else 'HC'))
-            st.info('Predicted PD class Probability: ***{}***'.format(round(float(labels_pred[sample_id]), 2)))
-        with col9:
-            shap.force_plot(exval, shap_values[sample_id,:], X.iloc[sample_id,:], show=False, matplotlib=True)
-            st.pyplot()
-        
-        col10, col11 = st.beta_columns(2)
-        with col10:
-            fig, ax = plt.subplots()
-            shap.decision_plot(exval, shap_values[sample_id], X.iloc[sample_id], link='logit', highlight=0, new_base_value=0)
             st.pyplot()
