@@ -73,7 +73,9 @@ def app():
     st.markdown('<div class="boxBorder1"><font color="black">Showing Analysis for {}</font></div>'.format(feature_set_my), unsafe_allow_html=True) 
     st.write('---')
     data_load_state = st.text('Loading data...')
-    cloned_output = copy.deepcopy(get_shapley_value_data(train, replication=replication_avail))
+    df = pd.read_csv('annotated_drugs.txt', sep='\t')
+    dict_map_result = dict(zip(list(df['MED_CODE']), list(df['meaning'])))
+    cloned_output = copy.deepcopy(get_shapley_value_data(train, replication=replication_avail, dict_map_result=dict_map_result))
     data_load_state.text("Done Data Loading! (using st.cache)")
     X, shap_values, exval, patient_index, auc_train, auc_test, labels_actual, labels_pred, shap_values_up, len_train, len_test = cloned_output 
     
